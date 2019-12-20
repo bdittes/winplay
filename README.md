@@ -9,6 +9,7 @@ Install
 - R
 - Rtools
 - RStudio
+- Git (incl. git bash)
 - VSCode
 - VSCode 'settings sync' extension + trigger sync
 

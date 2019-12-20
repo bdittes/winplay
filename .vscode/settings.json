@@ -1,0 +1,45 @@
+{
+  "editor.formatOnSave": true,
+  "python.pythonPath": "venv\\Scripts\\python.exe",
+  "python.linting.pycodestyleEnabled": true,
+  "python.linting.enabled": true,
+  "editor.tabSize": 4,
+  "editor.detectIndentation": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.mypyEnabled": true,
+  "cornflakes.linter.executablePath": "venv\\Scripts\\flake8.exe",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  },
+  "python.formatting.provider": "yapf",
+  "git.autofetch": true,
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "editor.suggestSelection": "first",
+  "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+  "explorer.confirmDelete": false,
+  "git.enableSmartCommit": true,
+  "explorer.confirmDragAndDrop": false,
+  "files.autoSave": "off",
+  "sync.gist": "036343ef7bd9bf618d150ba4265d5cca",
+  "git.confirmSync": false,
+  "python.jediEnabled": false,
+  "git-graph.dialog.merge.noFastForward": false,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/node_modules": true,
+    "**/venv": true
+  },
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/venv/**": true
+  },
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/venv": true
+  },
+  "python.linting.mypyCategorySeverity.note": "Warning",
+  "terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
+  "mypy.executable": "C:\\Users\\Ben\\AppData\\Local\\Programs\\Python\\Python38-32\\Scripts\\mypyls.exe",
+  "workbench.colorTheme": "Default Light+"
+}

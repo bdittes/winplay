@@ -1,4 +1,4 @@
-""" Run with ./run dcf through git bash. """
+""" Run with ./ruw dcf through WSL bash. """
 
 import pandas as pd
 

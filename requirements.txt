@@ -12,10 +12,12 @@ flake8-isort
 flask
 yapf
 ipython
-pyfakefs==3.6.1
-pytest==5.3.0
+pyfakefs
+pytest
 pytest-env
 mypy
+#pixi
+black
 
 # To install mypy in vscode, install the 'mypy' plugin and run these:
 # sudo apt install python3.8-venv python3.8-dev

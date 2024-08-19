@@ -2,19 +2,21 @@
     "editor.formatOnSave": true,
     "editor.tabSize": 4,
     "editor.detectIndentation": false,
-    "cornflakes.linter.executablePath": "venv\\Scripts\\flake8.exe",
+    "python.defaultInterpreterPath": "venv\\Scripts\\python.exe",
     "[python]": {
         "editor.formatOnSaveMode": "file",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "eeyore.yapf",
         "editor.formatOnType": false
     },
-    "autopep8.interpreter": [
-        "venv\\Scripts\\python.exe"
+    "python.pixiToolPath": "venv\\Scripts\\pixi.exe",
+    "black-formatter.path": [
+        "venv\\Scripts\\black.exe"
     ],
-    "black-formatter.interpreter": [
-        "venv\\Scripts\\python.exe"
-    ],
+    "mypy-type-checker.severity": {
+        "error": "Warning",
+        "note": "Information"
+    },
     "git.autofetch": true,
     "workbench.editor.enablePreview": false,
     "workbench.editor.enablePreviewFromQuickOpen": false,

@@ -39,6 +39,9 @@ if ($CMD -eq "server") {
 elseif ($CMD -eq "dcf") {
     python .\dcf.py $CMD_args
 }
+elseif ($CMD -eq "alti") {
+    python .\alti.py $CMD_args
+}
 elseif ($CMD -eq "lint") {
     mypy (Get-ChildItem -Filter *.py)
     flake8

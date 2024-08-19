@@ -11,6 +11,7 @@ npm-debug
 .idea
 bazel-*
 venv
+.venv
 .mypy_cache
 __pycache__
 .Rproj.user

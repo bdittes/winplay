@@ -15,6 +15,7 @@ if ($CMD -eq "install") {
     } 
     # Upgrade pip
     python -m ensurepip --upgrade
+    python -m pip install --upgrade pip
     if (! ($?)) { 
         Write-Output "Could not run pip"
         exit 1

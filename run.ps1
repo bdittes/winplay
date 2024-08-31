@@ -1,3 +1,13 @@
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+# Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+# scoop bucket add extras
+# scoop install miniconda3
+# conda init powershell
+# conda create --prefix conda
+# conda activate .\conda
+# conda install python=3.10 numpy=1.24 python-dotenv absl-py elasticsearch-dsl pip setuptools yapf ipython pytest
+
+
 # Get the first argument as $CMD
 $CMD = $args[0]
 # Shift the arguments (not directly supported in PowerShell 1.0)
@@ -21,7 +31,7 @@ if ($CMD -eq "install") {
         exit 1
     }
     # Upgrade setuptools
-    pip install --upgrade setuptools
+    python -m pip install --upgrade setuptools
     # Install requirements
     pip install --upgrade -r requirements.txt
     exit 0

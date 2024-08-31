@@ -17,3 +17,6 @@ __pycache__
 .Rproj.user
 .RData
 .Rhistory
+conda
+.cache
+testdata

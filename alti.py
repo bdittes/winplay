@@ -1,14 +1,52 @@
 """Convert swiss alti to mesh"""
 
 import glob
-
 import numpy as np
+import ezdxf
+import pymeshlab
+import utils as pu
+
+print(pu.cmdline_input('a', 'b'))
+exit(0)
+
+
+def PolyfaceToMesh(pf):
+    v = []
+    f = []
+    for vertex in pf.vertices:
+        if vertex.is_face_record:
+            face_indices = [
+                vertex.get_dxf_attrib(name, 0) - 1
+                for name in ('vtx0', 'vtx1', 'vtx2', 'vtx3')
+                if vertex.get_dxf_attrib(name, 0) != 0
+            ]
+            f.append(face_indices)
+        elif vertex.is_poly_face_mesh_vertex:
+            v.append(vertex.dxf.location)
+    print(len(v), len(f))
+    return pymeshlab.Mesh(v, f)
+
+
+DXF_PATH = "N:\\3d\\build\\SWISSBUILDINGS3D_2_0_CHLV95LN02_1091-41.dxf"
+DXF_PATH = "N:\\3d\\build\\Sample_swissBUILDINGS3D20_LV95.dxf"
+print(DXF_PATH)
+dxf = ezdxf.readfile(DXF_PATH).modelspace()
+print(len(dxf))
+ms.add_mesh(PolyfaceToMesh(dxf[0]))
+ms.save_current_mesh("N:\\3d\\build\\test.obj", save_vertex_normal=False, save_vertex_color=False)
+exit(0)
 
 STEP = 2.0
+HEADER = 0
 PATH = "N:\\3d\\alti\\SWISSALTI3D_2_XYZ_CHLV95_LN02_*.xyz"
 # PATH = "N:\\3d\\alti\\SWISSALTI3D_2_XYZ_CHLV95_LN02_2683_1248.xyz"
 # PATH = "N:\\3d\\alti\\test.xyz"
 OUTPATH = "N:\\3d\\alti\\py.obj"
+
+STEP = 0.5
+HEADER = 1
+PATH = "N:\\3d\\terra05\\swissSURFACE3D_Raster_0.5_xyz_CHLV95_LN02_*.xyz"
+OUTPATH = "N:\\3d\\terra05\\py.obj"
 
 a = np.ndarray(shape=(0, 3), dtype=np.float64)
 for fn in glob.glob(PATH):
@@ -16,7 +54,7 @@ for fn in glob.glob(PATH):
     a = np.append(a, np.genfromtxt(
         fname=fn,
         delimiter="",
-        skip_header=0,
+        skip_header=HEADER,
         dtype=np.float64,
     ), axis=0)
 a = a.T

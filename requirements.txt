@@ -1,26 +1,16 @@
-numpy
-pandas
-python-dotenv
-absl-py
-pip
-pipdeptree
-setuptools
-pycodestyle
+Flask==1.1.1
+scipy>=0.17.0
+nose>=1.3.7
+pymeshlab
+
+# Dev:
 flake8
 flake8-quotes
 flake8-isort
-flask
-yapf
-ipython
-pyfakefs
-pytest
+pyfakefs==3.6.1
 pytest-env
-mypy
-#pixi
-black
 
-# To install mypy in vscode, install the 'mypy' plugin and run these:
-# sudo apt install python3.8-venv python3.8-dev
-# python3.8 -m venv ~/.mypyls
-# ~/.mypyls/bin/pip install wheel
-# ~/.mypyls/bin/pip install "https://github.com/matangover/mypyls/archive/master.zip#egg=mypyls[patched-mypy]"
+pycodestyle
+black
+pymeshlab
+ezdxf

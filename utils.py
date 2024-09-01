@@ -1,10 +1,17 @@
 """Utils"""
 
 import os
-import requests
 import re
+from datetime import datetime
 from functools import partial
 from multiprocessing import Pool
+
+import requests
+
+
+def log(*args, **argv):
+    """Print with time."""
+    print(datetime.now().strftime("[%H:%m:%S]"), *args, **argv)
 
 
 def cmdline_input(prompt: str, default: str) -> str:
@@ -13,7 +20,20 @@ def cmdline_input(prompt: str, default: str) -> str:
 
 
 def is_local_file(url: str) -> bool:
+    """True if file does not need to be downloaded."""
     return re.match(R"/|[A-Z]:\\|\.\\|./", url)
+
+
+def cache_path(fname: str, ext="", cache_dir=".cache"):
+    """Output filename of mesh operations."""
+    if is_local_file(fname):
+        basename = os.path.basename(fname)
+    else:
+        basename = fname.split("/")[-1]
+    dst_file = os.path.join(cache_dir, basename)
+    if ext:
+        dst_file = os.path.splitext(dst_file)[0] + ext
+    return dst_file
 
 
 def url_lines(url: str) -> list[str]:
@@ -28,38 +48,36 @@ def url_lines(url: str) -> list[str]:
     return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
 
 
-def download_file(url: str, cache_dir: str, refresh=False) -> str:
+def download_file(url: str, cache_dir: str) -> str:
     """Download a single file to the cache."""
     try:
         if is_local_file(url):
             return url
-        file_name = url.split("/")[-1]
-        dst_file = os.path.join(cache_dir, file_name)
+        dst_file = cache_path(url, cache_dir=cache_dir)
         if os.path.exists(dst_file) and os.path.getsize(dst_file) > 0:
-            print(f" Already here: {dst_file}.")
+            log(f" Already here: {dst_file}.")
             return dst_file
         res = requests.get(url, timeout=1)
         with open(dst_file, "wb") as df:
             df.write(res.content)
-        print(f" Downloaded {url} to {dst_file}.")
+        log(f" Downloaded {url} to {dst_file}.")
         return dst_file
     except Exception as e:
-        print(e)
+        log(e)
         return ""
 
 
 def _url_to_cache_path(url: str, cache_dir: str) -> str:
     if is_local_file(url):
         return url
-    file_name = url.split("/")[-1]
-    return os.path.join(cache_dir, file_name)
+    return cache_path(url, cache_dir=cache_dir)
 
 
-def download_and_cache(urls: list[str], cache_dir=".cache", refresh=False) -> list[str]:
+def download_and_cache(urls: list[str], cache_dir=".cache") -> list[str]:
     """Download many files to the cache."""
     urls = [url.strip() for url in urls if url.strip()]
     os.makedirs(cache_dir, exist_ok=True)
-    with Pool(2) as pool:
-        df = partial(download_file, cache_dir=cache_dir, refresh=refresh)
+    with Pool(20) as pool:
+        df = partial(download_file, cache_dir=cache_dir)
         pool.map(df, urls)
     return [_url_to_cache_path(url, cache_dir) for url in urls]

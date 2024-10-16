@@ -5,8 +5,11 @@
 # conda init powershell
 # conda create --prefix conda
 # conda activate .\conda
-# conda install python=3.10 numpy=1.24 python-dotenv absl-py elasticsearch-dsl pip setuptools yapf ipython pytest
-
+# conda config --add channels conda-forge
+# conda config --set channel_priority strict
+# conda install python=3.10 numpy=1.24 python-dotenv absl-py elasticsearch-dsl pip setuptools yapf ipython pytest pyparsing
+# conda install rasterio gdal
+# conda update --all --yes
 
 # Get the first argument as $CMD
 $CMD = $args[0]
@@ -16,29 +19,29 @@ $CMD_args = $args[1..($args.Length - 1)]
 if ($CMD -eq "install") {
     # Create a virtual environment
     # ONLY use python3 here! After \activate, only call 'python'!
-    python3 -m venv venv
+    # python3 -m venv venv
     # Activate the virtual environment
-    & .\venv\Scripts\activate
+    # & .\venv\Scripts\activate
     if (! ($?)) { 
         Write-Output "Could not activate venv"
         exit 1
     } 
     # Upgrade pip
-    python -m ensurepip --upgrade
-    python -m pip install --upgrade pip
+    # python -m ensurepip --upgrade
+    # python -m pip install --upgrade pip
     if (! ($?)) { 
         Write-Output "Could not run pip"
         exit 1
     }
     # Upgrade setuptools
-    python -m pip install --upgrade setuptools
+    # python -m pip install --upgrade setuptools
     # Install requirements
     pip install --upgrade -r requirements.txt
     exit 0
 }
 
 # Activate the virtual environment (if not already done)
-& .\venv\Scripts\activate
+# & .\venv\Scripts\activate
 if (! ($?)) { 
     Write-Output "Could not activate venv"
     exit 1 

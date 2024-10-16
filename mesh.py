@@ -1,12 +1,16 @@
 """Lib to convert xyz zip files to mesh OBJ."""
 
+import hashlib
 import os
 import zipfile
 
 import ezdxf
+import networkx
 import numpy as np
 import pymeshlab
 import pymeshlab.pmeshlab
+# import rasterio
+from tifffile import imread
 
 import utils as pu
 
@@ -16,25 +20,39 @@ def mesh_path(fname: str, cache_dir=".cache") -> str:
     return pu.cache_path(fname, ext=".ply", cache_dir=cache_dir)
 
 
-def xyz_to_mesh(fname: str, cache_dir=".cache"):
+def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     """Process xyz data to ply file in cache."""
-    if "xyz" not in fname:
-        return
-    dst_file = mesh_path(fname, cache_dir)
-    log_prefix = os.path.basename(fname)
+    lines = []
+    cache_key = hashlib.md5()
+    for fname in fnames:
+        if ".xyz" in fname:
+            cache_key.update(fname.encode())
+        if ".tif" in fname:
+            cache_key.update(fname.encode())
+    if not cache_key:
+        return ""
+    log_prefix = f"xyz_{(cache_key.hexdigest())}"
+    dst_file = mesh_path(log_prefix, cache_dir)
     if os.path.exists(dst_file) and os.path.getsize(dst_file) > 0:
         pu.log(f"[{log_prefix}] Already here: {dst_file}.")
-        return
-
-    lines = []
-    if fname.endswith("zip"):
-        with zipfile.ZipFile(fname) as zf:
-            for zfn in zf.namelist():
-                if zfn.endswith(".xyz"):
-                    lines.extend(zf.read(zfn).decode("utf-8-sig").splitlines())
-    else:
-        with open(fname, "r") as f:
-            lines.extend(f.readlines())
+        return dst_file
+    for fname in fnames:
+        if ".xyz" in fname:
+            if fname.endswith("zip"):
+                with zipfile.ZipFile(fname) as zf:
+                    for zfn in zf.namelist():
+                        if zfn.endswith(".xyz"):
+                            lines.extend(zf.read(zfn).decode("utf-8-sig").splitlines())
+            else:
+                with open(fname, "r") as f:
+                    lines.extend(f.readlines())
+        if ".tif" in fname:
+            data = imread(fname)
+            print(data.shape)
+            for x in range(0, data.shape[0]):
+                for y in range(0, data.shape[1]):
+                    #print(data[x][y])
+                    lines.append(f"{x} {y} {data[x][y]}")
     if not lines:
         return
     pu.log(f"[{log_prefix}] '{lines[0].strip()}'")
@@ -122,12 +140,12 @@ def xyz_to_mesh(fname: str, cache_dir=".cache"):
     pu.log(f"[{log_prefix}] {ms.current_mesh().vertex_matrix().shape}")
     ms.save_current_mesh(dst_file)
     pu.log(f"[{log_prefix}] Wrote {dst_file}")
-    return
+    return dst_file
 
 
 def dxf_to_mesh(fname: str, cache_dir=".cache"):
     """Process dxf to ply."""
-    if "dxf" not in fname:
+    if ".dxf" not in fname:
         return
     dst_file = mesh_path(fname, cache_dir)
     log_prefix = os.path.basename(fname)
@@ -162,6 +180,42 @@ def dxf_to_mesh(fname: str, cache_dir=".cache"):
     pu.log(f"[{log_prefix}] {ms.current_mesh().vertex_matrix().shape}")
     ms.save_current_mesh(dst_file)
     pu.log(f"[{log_prefix}] Wrote {dst_file}")
+
+
+def gml_to_mesh(fname: str, cache_dir=".cache"):
+    """Process gml to ply."""
+    if ".gml" not in fname:
+        return
+    dst_file = mesh_path(fname, cache_dir)
+    log_prefix = os.path.basename(fname)
+    if os.path.exists(dst_file) and os.path.getsize(dst_file) > 0:
+        pu.log(f"[{log_prefix}] Already here: {dst_file}.")
+        return
+
+    v = []
+    f = []
+    gml = networkx.read_gml(fname)
+    pu.log(f"[{log_prefix}] {gml.node}")
+    # for pf in dxf:
+    #     vbase = len(v)
+    #     for vertex in pf.vertices:
+    #         if vertex.is_face_record:
+    #             face_indices = [
+    #                 vertex.get_dxf_attrib(name, 0) - 1 + vbase
+    #                 for name in ("vtx0", "vtx1", "vtx2", "vtx3")
+    #                 if vertex.get_dxf_attrib(name, 0) != 0
+    #             ]
+    #             f.append(face_indices)
+    #         elif vertex.is_poly_face_mesh_vertex:
+    #             v.append(vertex.dxf.location)
+    # pu.log(f"[{log_prefix}] {len(v)} vertices, {len(f)} faces")
+    # if len(v) == 0:
+    #     return
+    # ms = pymeshlab.MeshSet()
+    # ms.add_mesh(pymeshlab.Mesh(v, f))
+    # pu.log(f"[{log_prefix}] {ms.current_mesh().vertex_matrix().shape}")
+    # ms.save_current_mesh(dst_file)
+    # pu.log(f"[{log_prefix}] Wrote {dst_file}")
 
 
 def join_mesh_set(fnames: list[str]) -> pymeshlab.MeshSet:

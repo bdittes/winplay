@@ -3,6 +3,11 @@
 pymeshlab
 polyscope
 ezdxf
+requests
+# gdal
+# rasterio
+tifffile
+networkx # for GML
 
 # Dev:
 Flask==1.1.1

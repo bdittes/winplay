@@ -26,7 +26,11 @@ if __name__ == "__main__":
         dgml = partial(mesh.gml_to_mesh, cache_dir=cache_dir)
         pool.map(dgml, urls)
     xyz_cache = mesh.xyz_to_mesh(urls, cache_dir=cache_dir)
-    urls = [mesh.mesh_path(url, cache_dir) for url in urls if ".dxf" in url or ".gml" in url]
+    urls = [
+        mesh.mesh_path(url, cache_dir)
+        for url in urls
+        if url.endswith(".dxf") or url.endswith(".gml") or pu.zip_has_file(url, ".dxf") or pu.zip_has_file(url, ".gml")
+    ]
     if xyz_cache:
         urls.append(xyz_cache)
     pu.log(urls)

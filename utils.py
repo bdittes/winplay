@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from functools import partial
 from multiprocessing import Pool
+import zipfile
 
 import requests
 
@@ -81,3 +82,18 @@ def download_and_cache(urls: list[str], cache_dir=".cache") -> list[str]:
         df = partial(download_file, cache_dir=cache_dir)
         pool.map(df, urls)
     return [_url_to_cache_path(url, cache_dir) for url in urls]
+
+
+def zip_has_file(fname: str, pattern: str):
+    """Test if the fname is a zip and contains a file with the pattern"""
+    try:
+        if not fname.endswith(".zip"):
+            return False
+        with zipfile.ZipFile(fname) as zf:
+            for zfn in zf.namelist():
+                if pattern in zfn:
+                    return True
+        return False
+    except Exception as e:
+        print(f"ERROR {e}")
+        return False

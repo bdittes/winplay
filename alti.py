@@ -4,10 +4,14 @@ import os
 from functools import partial
 from multiprocessing import Pool, cpu_count
 
+import numpy
+
 import mesh
 import utils as pu
+import cyutils as cy
 
 if __name__ == "__main__":
+    print(cy.nptest(numpy.ones(shape=(2, 3))))
     cache_dir = ".cache"
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\zh-large.csv")
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\swissbuildings2.csv")

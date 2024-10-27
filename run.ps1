@@ -7,9 +7,11 @@
 # conda activate .\conda
 # conda config --add channels conda-forge
 # conda config --set channel_priority strict
-# conda install python=3.10 numpy=1.24 python-dotenv absl-py elasticsearch-dsl pip setuptools yapf ipython pytest pyparsing
+# conda install python=3.10 numpy=1.24 python-dotenv absl-py elasticsearch-dsl pip setuptools yapf ipython pytest pyparsing cython
 # conda install rasterio gdal
 # conda update --all --yes
+
+# https://github.com/bycloudai/InstallVSBuildToolsWindows
 
 # Get the first argument as $CMD
 $CMD = $args[0]
@@ -54,7 +56,11 @@ elseif ($CMD -eq "dcf") {
     python .\dcf.py $CMD_args
 }
 elseif ($CMD -eq "alti") {
+    python .\cy\setup.py build_ext --inplace
     python .\alti.py $CMD_args
+}
+elseif ($CMD -eq "cy") {
+    python .\cy\setup.py build_ext --inplace
 }
 elseif ($CMD -eq "lint") {
     mypy (Get-ChildItem -Filter *.py)

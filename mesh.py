@@ -77,6 +77,7 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
         h[x][y] = a[2][i]
     del a
 
+    # TODO
     v = [[mins[0], mins[1], 0], [maxs[0], mins[1], 0], [mins[0], maxs[1], 0], [maxs[0], maxs[1], 0]
          ] + [[mins[0] + x * step, mins[1] + y * step, h[x][y]] for x in range(0, dim_x) for y in range(0, dim_y)]
     pu.log(f"[{log_prefix}] {len(v)} vertices")

@@ -20,3 +20,5 @@ __pycache__
 conda
 .cache
 testdata
+cy/*.c
+*.pyd

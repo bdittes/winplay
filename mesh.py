@@ -15,6 +15,7 @@ from tifffile import imread
 
 import Triangulate
 import utils as pu
+import cyutils
 
 
 def mesh_path(fname: str, cache_dir=".cache") -> str:
@@ -22,9 +23,20 @@ def mesh_path(fname: str, cache_dir=".cache") -> str:
     return pu.cache_path(fname, ext=".ply", cache_dir=cache_dir)
 
 
+def add_line(a: np.array, i: int, l: str):
+    l = l.strip()
+    if not l.strip() or l.strip().lower().split(" ")[0] == "x":
+        return 0
+    if a.shape[0] <= i:
+        a.resize((a.shape[0] + 10000, a.shape[1]), refcheck=False)
+    a[i][:] = l.split(" ")
+    return 1
+
+
 def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     """Process xyz data to ply file in cache."""
-    lines = []
+    a = np.zeros(shape=(10000, 3), dtype=np.float64)
+    vi = 0
     cache_key = hashlib.md5()
     for fname in fnames:
         if fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz"):
@@ -41,25 +53,23 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
             with zipfile.ZipFile(fname) as zf:
                 for zfn in zf.namelist():
                     if zfn.endswith(".xyz"):
-                        lines.extend(zf.read(zfn).decode("utf-8-sig").splitlines())
+                        for li in zf.read(zfn).decode("utf-8-sig").splitlines():
+                            vi += add_line(a, vi, li)
                     # TODO zip .tif
         elif fname.endswith(".xyz"):
             with open(fname, "r") as f:
-                lines.extend(f.readlines())
+                for li in f.readlines():
+                    vi += add_line(a, vi, li)
         elif fname.endswith(".tif"):
             data = imread(fname)
             print(data.shape)
             for x in range(0, data.shape[0]):
                 for y in range(0, data.shape[1]):
-                    lines.append(f"{x} {y} {data[x][y]}")
-    if not lines:
+                    vi += add_line(a, vi, f"{x} {y} {data[x][y]}")
+    if vi <= 0:
         return
-    pu.log(f"[{log_prefix}] '{lines[0].strip()}'")
-    lines = [li.strip() for li in lines if li.strip() and li.strip().lower().split(" ")[0] != "x"]
-    a = np.zeros(shape=(len(lines), 3), dtype=np.float64)
-    for vi in range(len(lines)):
-        a[vi][:] = lines[vi].split(" ")
-    del lines
+    pu.log(f"[{log_prefix}] {vi} lines")
+    a.resize((vi, 3))
     a = a.T
     pu.log(f"[{log_prefix}] {a.shape}")
     mins = [np.min(a[0]), np.min(a[1]), np.min(a[2])]
@@ -70,11 +80,14 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     dim_x = int((maxs[0] - mins[0]) / step + 1)
     dim_y = int((maxs[1] - mins[1]) / step + 1)
     pu.log(f"[{log_prefix}] {dim_x}, {dim_y}")
-    h = np.zeros(shape=(dim_x, dim_y), dtype=np.float64)
-    for i in range(0, a.shape[1]):
-        x = int(np.round((a[0][i] - mins[0]) / step))
-        y = int(np.round((a[1][i] - mins[1]) / step))
-        h[x][y] = a[2][i]
+    if dim_x * dim_y > 1000000000:
+        return
+    # h = np.zeros(shape=(dim_x, dim_y), dtype=np.float64)
+    # for i in range(0, a.shape[1]):
+    #     x = int(np.round((a[0][i] - mins[0]) / step))
+    #     y = int(np.round((a[1][i] - mins[1]) / step))
+    #     h[x][y] = a[2][i]
+    h = cyutils.xyz_to_grid(np.ascontiguousarray(a))
     del a
 
     # TODO

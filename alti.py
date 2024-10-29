@@ -11,12 +11,12 @@ import utils as pu
 import cyutils as cy
 
 if __name__ == "__main__":
-    print(cy.nptest(numpy.ones(shape=(2, 3))))
+    print(cy.nptest(numpy.ones(shape=(2, 3), dtype=numpy.float64)))
     cache_dir = ".cache"
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\zh-large.csv")
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\swissbuildings2.csv")
-    # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\xyz.csv")
-    a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\freiburg.csv")
+    a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\xyz.csv")
+    #a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\freiburg.csv")
     pu.log(a)
     o = os.path.splitext(a)[0] + ".stl"
     o = pu.cmdline_input("out", o)

@@ -1,4 +1,11 @@
-from setuptools import setup
+from setuptools import Extension, setup
 from Cython.Build import cythonize
+import numpy
 
-setup(ext_modules=cythonize(R"cy\cyutils.py"),)
+extensions = [
+    Extension("*", ["cy/cyutils.pyx"], include_dirs=[numpy.get_include()]),
+]
+setup(
+    name="cyutils",
+    ext_modules=cythonize(extensions),
+)

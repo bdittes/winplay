@@ -48,6 +48,7 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     if os.path.exists(dst_file) and os.path.getsize(dst_file) > 0:
         pu.log(f"[{log_prefix}] Already here: {dst_file}.")
         return dst_file
+
     for fname in fnames:
         if fname.endswith("zip"):
             with zipfile.ZipFile(fname) as zf:
@@ -80,61 +81,17 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     dim_x = int((maxs[0] - mins[0]) / step + 1)
     dim_y = int((maxs[1] - mins[1]) / step + 1)
     pu.log(f"[{log_prefix}] {dim_x}, {dim_y}")
-    if dim_x * dim_y > 1000000000:
+    if dim_x * dim_y > 10000000000:
         return
-    # h = np.zeros(shape=(dim_x, dim_y), dtype=np.float64)
-    # for i in range(0, a.shape[1]):
-    #     x = int(np.round((a[0][i] - mins[0]) / step))
-    #     y = int(np.round((a[1][i] - mins[1]) / step))
-    #     h[x][y] = a[2][i]
-    h = cyutils.xyz_to_grid(np.ascontiguousarray(a))
+
+    h = cyutils.xyz_to_grid(a)
     del a
 
-    # TODO
-    v = [[mins[0], mins[1], 0], [maxs[0], mins[1], 0], [mins[0], maxs[1], 0], [maxs[0], maxs[1], 0]
-         ] + [[mins[0] + x * step, mins[1] + y * step, h[x][y]] for x in range(0, dim_x) for y in range(0, dim_y)]
-    pu.log(f"[{log_prefix}] {len(v)} vertices")
+    v, f = cyutils.grid_to_vf(h, mins[0], mins[1], step)
     del h
+    pu.log(f"[{log_prefix}] {v.shape} v {f.shape} f")
 
-    BO = 4
-    f = []
-    for x in range(0, dim_x - 1):
-        for y in range(0, dim_y - 1):
-            ixy = x * dim_y + y
-            nxy = (x + 1) * dim_y + y
-            f.append([ixy + BO, nxy + BO, ixy + 1 + BO])
-            f.append([
-                ixy + 1 + BO,
-                nxy + BO,
-                nxy + 1 + BO,
-            ])
-    pu.log(f"[{log_prefix}] {len(f)} top faces")
-
-    for x in range(0, dim_x):
-        ixy = x * dim_y + 0
-        ipxy = (x - 1) * dim_y + 0
-        ly = dim_y - 1
-        if x == 0:
-            f.append([0, 1, ixy + BO])
-            f.append([3, 2, ixy + ly + BO])
-        else:
-            f.append([ipxy + BO, 1, ixy + BO])
-            f.append([3, ipxy + ly + BO, ixy + ly + BO])
-
-    for y in range(0, dim_y):
-        ixy = 0 * dim_y + y
-        lxy = (dim_x - 1) * dim_y + y
-        if y == 0:
-            f.append([2, 0, ixy + BO])
-            f.append([1, 3, lxy + BO])
-        else:
-            f.append([ixy - 1 + BO, ixy + BO, 2])
-            f.append([3, lxy + BO, lxy - 1 + BO])
-
-    f.append([0, 2, 1])
-    f.append([1, 2, 3])
-    pu.log(f"[{log_prefix}] {len(f)} total faces")
-    if len(v) == 0:
+    if v.shape[0] == 0:
         return
     ms = pymeshlab.MeshSet()
     ms.add_mesh(pymeshlab.Mesh(v, f))

@@ -23,20 +23,22 @@ def mesh_path(fname: str, cache_dir=".cache") -> str:
     return pu.cache_path(fname, ext=".ply", cache_dir=cache_dir)
 
 
-def add_line(a: np.array, i: int, l: str):
-    l = l.strip()
+def add_line(a: np.array, i: int, li: str):
+    """Add one line to the XYZ array."""
+    l = li.strip()
     if not l.strip() or l.strip().lower().split(" ")[0] == "x":
         return 0
     if a.shape[0] <= i:
-        a.resize((a.shape[0] + 10000, a.shape[1]), refcheck=False)
+        a.resize((a.shape[0] + 10000000, a.shape[1]), refcheck=False)
+        pu.log(f"add_line {a.shape}")
     a[i][:] = l.split(" ")
     return 1
 
 
 def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     """Process xyz data to ply file in cache."""
-    a = np.zeros(shape=(10000, 3), dtype=np.float64)
-    vi = 0
+    a = np.zeros(shape=(10000000, 3), dtype=np.float64)
+    ai = 0
     cache_key = hashlib.md5()
     for fname in fnames:
         if fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz"):
@@ -50,32 +52,51 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
         return dst_file
 
     for fname in fnames:
-        if fname.endswith("zip"):
-            with zipfile.ZipFile(fname) as zf:
-                for zfn in zf.namelist():
-                    if zfn.endswith(".xyz"):
-                        for li in zf.read(zfn).decode("utf-8-sig").splitlines():
-                            vi += add_line(a, vi, li)
-                    # TODO zip .tif
-        elif fname.endswith(".xyz"):
-            with open(fname, "r") as f:
-                for li in f.readlines():
-                    vi += add_line(a, vi, li)
-        elif fname.endswith(".tif"):
-            data = imread(fname)
-            print(data.shape)
-            for x in range(0, data.shape[0]):
-                for y in range(0, data.shape[1]):
-                    vi += add_line(a, vi, f"{x} {y} {data[x][y]}")
-    if vi <= 0:
+        fa = np.zeros(shape=(10000000, 3), dtype=np.float64)
+        fai = 0
+        np_cache = pu.cache_path(fname, ".npy", cache_dir=cache_dir)
+        if os.path.exists(np_cache) and os.path.getsize(np_cache) > 0:
+            pu.log(f"[{log_prefix}] {fname} load {np_cache}")
+            fa = np.load(np_cache)
+            fai = fa.shape[0]
+        else:
+            pu.log(f"[{log_prefix}] {fname}")
+            if fname.endswith("zip"):
+                with zipfile.ZipFile(fname) as zf:
+                    for zfn in zf.namelist():
+                        if zfn.endswith(".xyz"):
+                            for li in zf.read(zfn).decode("utf-8-sig").splitlines():
+                                fai += add_line(fa, fai, li)
+                        # TODO zip .tif
+            elif fname.endswith(".xyz"):
+                with open(fname, "r") as f:
+                    for li in f.readlines():
+                        fai += add_line(fa, fai, li)
+            elif fname.endswith(".tif"):
+                data = imread(fname)
+                print(data.shape)
+                for x in range(0, data.shape[0]):
+                    for y in range(0, data.shape[1]):
+                        fai += add_line(fa, fai, f"{x} {y} {data[x][y]}")
+            fa.resize((fai, 3))
+            pu.log(f"[{log_prefix}] {fname} save {np_cache}")
+            np.save(np_cache, fa)
+        if ai + fai > a.shape[0]:
+            a.resize((ai + fai, 3))
+        a[ai:ai + fai][:] = fa
+        ai += fai
+    if ai <= 0:
         return
-    pu.log(f"[{log_prefix}] {vi} lines")
-    a.resize((vi, 3))
+    a.resize((ai, 3))
+    pu.log(f"[{log_prefix}] {ai} lines")
+
     a = a.T
     pu.log(f"[{log_prefix}] {a.shape}")
     mins = [np.min(a[0]), np.min(a[1]), np.min(a[2])]
     maxs = [np.max(a[0]), np.max(a[1]), np.max(a[2])]
     step = np.min([v for v in a[0] if v > mins[0]]) - mins[0]
+    if step < 1.0:
+        step = 1.0
     pu.log(f"[{log_prefix}] STEP {step}")
 
     dim_x = int((maxs[0] - mins[0]) / step + 1)
@@ -84,7 +105,7 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     if dim_x * dim_y > 10000000000:
         return
 
-    h = cyutils.xyz_to_grid(a)
+    h = cyutils.xyz_to_grid(a, step)
     del a
 
     v, f = cyutils.grid_to_vf(h, mins[0], mins[1], step)

@@ -12,7 +12,7 @@ import requests
 
 def log(*args, **argv):
     """Print with time."""
-    print(datetime.now().strftime("[%H:%m:%S]"), *args, **argv)
+    print(datetime.now().strftime("[%H:%M:%S]"), *args, **argv)
 
 
 def cmdline_input(prompt: str, default: str) -> str:
@@ -78,7 +78,7 @@ def download_and_cache(urls: list[str], cache_dir=".cache") -> list[str]:
     """Download many files to the cache."""
     urls = [url.strip() for url in urls if url.strip()]
     os.makedirs(cache_dir, exist_ok=True)
-    with Pool(20) as pool:
+    with Pool(20 if len(urls) >= 20 else len(urls)) as pool:
         df = partial(download_file, cache_dir=cache_dir)
         pool.map(df, urls)
     return [_url_to_cache_path(url, cache_dir) for url in urls]

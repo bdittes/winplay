@@ -1,6 +1,7 @@
 {
     "recommendations": [
-        "ms-python.black-formatter",
+        "eeyore.yapf",
         "ms-python.python",
+        "ktnrg45.vscode-cython",
     ]
 }

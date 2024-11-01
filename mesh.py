@@ -13,9 +13,9 @@ import pymeshlab.pmeshlab
 # import rasterio
 from tifffile import imread
 
-import Triangulate
 import utils as pu
 import cyutils
+import triangulate
 
 
 def mesh_path(fname: str, cache_dir=".cache") -> str:
@@ -35,10 +35,68 @@ def add_line(a: np.array, i: int, li: str):
     return 1
 
 
+def joinvf(vf1, vf2):
+    """Join two vertex/face arrays."""
+    if not vf1:
+        return vf2
+    if not vf2:
+        return vf1
+    v1, f1 = vf1
+    v2, f2 = vf2
+    return np.append(v1, v2, axis=0), np.append(f1, f2 + v1.shape[0], axis=0)
+
+
+def polygonvf(x, y, z):
+    v = np.zeros(shape=(len(x), 3), dtype=np.float64)
+    ps = []
+    for i in range(len(x)):
+        v[i][:] = [x[i], y[i], z[i]]
+        ps.append([x[i], y[i], z[i], i])
+    triangles, _ = triangulate.triangulate(ps)
+    f = np.zeros(shape=(len(triangles), 3), dtype=np.float64)
+    for i in range(len(triangles)):
+        i0, i1, i2 = triangles[i]
+        f[i][:] = [i0, i1, i2]
+    pu.log(f"polygonvf {len(x)} {len(f)}")
+    return v, f
+
+
+def grid_sides(h: np.array, minx, miny, step):
+    dim_x, dim_y = h.shape
+    maxx = minx + step * dim_x
+    maxy = miny + step * dim_y
+    vf = None
+    vf = joinvf(vf, polygonvf([minx, maxx, maxx, minx], [miny, miny, maxy, maxy], [0, 0, 0, 0]))
+    vf = joinvf(
+        vf,
+        polygonvf(
+            [minx + i * step for i in range(dim_x)] + [maxx, minx],  #
+            [miny for i in range(dim_x + 2)],
+            [h[i][0] for i in range(dim_x)] + [0, 0]))
+    vf = joinvf(
+        vf,
+        polygonvf(
+            [minx + i * step for i in range(dim_x)] + [maxx, minx],  #
+            [maxy for i in range(dim_x + 2)],
+            [h[i][dim_y - 1] for i in range(dim_x)] + [0, 0]))
+    vf = joinvf(
+        vf,
+        polygonvf(
+            [minx for i in range(dim_y + 2)],  #
+            [miny + i * step for i in range(dim_y)] + [maxy, miny],
+            [h[0][i] for i in range(dim_y)] + [0, 0]))
+    vf = joinvf(
+        vf,
+        polygonvf(
+            [maxx for i in range(dim_y + 2)],  #
+            [miny + i * step for i in range(dim_y)] + [maxy, miny],
+            [h[dim_x - 1][i] for i in range(dim_y)] + [0, 0]))
+    return vf
+
+
 def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     """Process xyz data to ply file in cache."""
-    a = np.zeros(shape=(10000000, 3), dtype=np.float64)
-    ai = 0
+    a = np.zeros(shape=(0, 3), dtype=np.float64)
     cache_key = hashlib.md5()
     for fname in fnames:
         if fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz"):
@@ -52,6 +110,8 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
         return dst_file
 
     for fname in fnames:
+        if not (fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz")):
+            continue
         fa = np.zeros(shape=(10000000, 3), dtype=np.float64)
         fai = 0
         np_cache = pu.cache_path(fname, ".npy", cache_dir=cache_dir)
@@ -81,22 +141,18 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
             fa.resize((fai, 3))
             pu.log(f"[{log_prefix}] {fname} save {np_cache}")
             np.save(np_cache, fa)
-        if ai + fai > a.shape[0]:
-            a.resize((ai + fai, 3))
-        a[ai:ai + fai][:] = fa
-        ai += fai
-    if ai <= 0:
+        a = np.append(a, fa, axis=0)
+    if a.shape[0] <= 0:
         return
-    a.resize((ai, 3))
-    pu.log(f"[{log_prefix}] {ai} lines")
+    pu.log(f"[{log_prefix}] {a.shape} lines")
 
     a = a.T
     pu.log(f"[{log_prefix}] {a.shape}")
     mins = [np.min(a[0]), np.min(a[1]), np.min(a[2])]
     maxs = [np.max(a[0]), np.max(a[1]), np.max(a[2])]
     step = np.min([v for v in a[0] if v > mins[0]]) - mins[0]
-    if step < 1.0:
-        step = 1.0
+    if step < 2.0:
+        step = 2.0
     pu.log(f"[{log_prefix}] STEP {step}")
 
     dim_x = int((maxs[0] - mins[0]) / step + 1)
@@ -108,16 +164,17 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     h = cyutils.xyz_to_grid(a, step)
     del a
 
-    v, f = cyutils.grid_to_vf(h, mins[0], mins[1], step)
+    vf = cyutils.grid_to_vf(h, mins[0], mins[1], step)
+    vf = joinvf(vf, grid_sides(h, mins[0], mins[1], step))
     del h
-    pu.log(f"[{log_prefix}] {v.shape} v {f.shape} f")
+    pu.log(f"[{log_prefix}] {vf[0].shape} v {vf[1].shape} f")
 
-    if v.shape[0] == 0:
+    if vf[0].shape[0] == 0:
         return
     ms = pymeshlab.MeshSet()
-    ms.add_mesh(pymeshlab.Mesh(v, f))
+    ms.add_mesh(pymeshlab.Mesh(vf[0], vf[1]))
     # num_v = len(v)
-    del v, f
+    del vf
     targetperc = 0.8
     if step >= 1.95:
         targetperc = 0.1
@@ -194,35 +251,8 @@ def gml_to_mesh(fname: str, cache_dir=".cache"):
         with open(fname, "r") as f:
             lines.extend(f.readlines())
 
-    # namespaces = [
-    #     'http://www.citygml.org/citygml/1/0/0',
-    #     'http://www.opengis.net/citygml/1.0',
-    #     'http://www.opengis.net/citygml/2.0',
-    #     'http://www.opengis.net/gml',
-    # ]
-
     v = []
     f = []
-    # for gml in gmls:
-    #     vstart = len(v)
-    #     tr = etree.fromstring(gml)
-    #     # for ns in namespaces:
-    #     #     identifier = '//{{{}}}cityObjectMember'.format(ns)
-    #     #     cos = tr.findall(identifier)
-    #     #     if cos:
-    #     #         break
-    #     # ns = '{' + ns + '}'
-    #     ns = "{http://www.opengis.net/gml}"
-    #     root = tr.find("{http://www.opengis.net/citygml/1.0}cityObjectMember")
-    #     for polygon in root.iter(f"{ns}Polygon"):
-    #         print(polygon)
-    #         for pl in polygon.iter(f"{ns}posList"):
-    #             print(pl)
-    #             ps = []
-    #             coords = pl.text.split()
-    #             for i in range(0, len(coords), 3):
-    #                 ps.append(Triangulate.Point(float(coords[i]), float(coords[i + 1]), float(coords[i + 2])))
-    #             print(ps)
     for line in lines:
         vbase = len(v)
         if "posList" not in line: continue
@@ -236,28 +266,16 @@ def gml_to_mesh(fname: str, cache_dir=".cache"):
         ps = []
         coords = line.split()
         for i in range(0, len(coords), 3):
-            p = Triangulate.Point(float(coords[i]), float(coords[i + 1]), float(coords[i + 2]), i / 3)
+            p = [float(coords[i]), float(coords[i + 1]), float(coords[i + 2]), i / 3]
             ps.append(p)
             v.append([p.x, p.y, p.z])
         # print([str(p) for p in ps])
-        triangles, normal = Triangulate.triangulate(ps)
+        triangles, _ = triangulate.triangulate(ps)
         for t in triangles:
-            f.append([t.p0.i + vbase, t.p1.i + vbase, t.p2.i + vbase])
+            f.append([t[0] + vbase, t[1] + vbase, t[2] + vbase])
         # print(triangles)
         # print(normal)
 
-    # for pf in dxf:
-    #     vbase = len(v)
-    #     for vertex in pf.vertices:
-    #         if vertex.is_face_record:
-    #             face_indices = [
-    #                 vertex.get_dxf_attrib(name, 0) - 1 + vbase
-    #                 for name in ("vtx0", "vtx1", "vtx2", "vtx3")
-    #                 if vertex.get_dxf_attrib(name, 0) != 0
-    #             ]
-    #             f.append(face_indices)
-    #         elif vertex.is_poly_face_mesh_vertex:
-    #             v.append(vertex.dxf.location)
     pu.log(f"[{log_prefix}] {len(v)} vertices, {len(f)} faces")
     if len(v) == 0:
         return
@@ -270,22 +288,18 @@ def gml_to_mesh(fname: str, cache_dir=".cache"):
 
 def join_mesh_set(fnames: list[str]) -> pymeshlab.MeshSet:
     """Join given mesh files into a MeshSet with a single mesh."""
-    v = np.zeros(shape=(0, 3), dtype=np.float64)
-    f = np.zeros(shape=(0, 3), dtype=np.int32)
-    vbase = 0
+    vf = None
     for fname in fnames:
         ms = pymeshlab.MeshSet()
         ms.load_new_mesh(fname)
+        if len(fnames) == 1:
+            return ms
         for m in ms:
-            pu.log(m.vertex_matrix().shape)
-            v = np.append(v, m.vertex_matrix(), axis=0)
-            f = np.append(f, m.face_matrix() + vbase, axis=0)
-            vbase = len(v)
-    pu.log(v.shape)
-    pu.log(f.shape)
+            pu.log(f"join {fname} {m.vertex_matrix().shape}")
+            vf = joinvf(vf, (m.vertex_matrix(), m.face_matrix()))
+    pu.log(f"joined to {vf[0].shape} {vf[1].shape}")
     ms = pymeshlab.MeshSet()
-    ms.add_mesh(pymeshlab.Mesh(v, f))
-    pu.log(f"joined into {ms.current_mesh().vertex_matrix().shape}")
+    ms.add_mesh(pymeshlab.Mesh(vf[0], vf[1]))
     pu.log("Merge close")
     ms.meshing_merge_close_vertices(threshold=pymeshlab.PercentageValue(0.001))
     pu.log(f"{ms.current_mesh().vertex_matrix().shape}")

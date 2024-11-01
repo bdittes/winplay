@@ -18,8 +18,8 @@ if __name__ == "__main__":
     # print(pu.cache_path(R".\.cache\abc.xyz.zip", ".npy"))
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\zh-large.csv")
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\swissbuildings2.csv")
-    # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\xyz.csv")
-    a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\Zurich10x10_TOPO.csv")
+    a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\xyz.csv")
+    # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\Zurich10x10_TOPO.csv")
     # a = pu.cmdline_input("csv", R"N:\code\winplay\testdata\freiburg.csv")
     pu.log(a)
     o = os.path.splitext(a)[0] + ".stl"

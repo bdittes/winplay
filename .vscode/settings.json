@@ -9,6 +9,9 @@
         "editor.defaultFormatter": "eeyore.yapf",
         "editor.formatOnType": false
     },
+    "files.associations": {
+        "*.pyx": "python",
+    },
     "python.pixiToolPath": "venv\\Scripts\\pixi.exe",
     "black-formatter.path": [
         "venv\\Scripts\\black.exe"

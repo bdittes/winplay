@@ -10,6 +10,14 @@ import zipfile
 import requests
 
 
+def min(a, b):
+    return a if a < b else b
+
+
+def max(a, b):
+    return b if a < b else a
+
+
 def log(*args, **argv):
     """Print with time."""
     print(datetime.now().strftime("[%H:%M:%S]"), *args, **argv)

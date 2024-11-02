@@ -19,12 +19,26 @@ def nptest(a: cy.double[:, :]) -> np.array:
 
 @cy.boundscheck(False)
 @cy.wraparound(False)
-def xyz_to_grid(a: cy.double[:, :], step: cy.double):
+def xy_step(a: cy.double[:, :]):
+    minx: cy.double = np.min(a[0])
+    minx2: cy.double = np.max(a[0])
+    i: cy.int = 0
+    alen: cy.int = a.shape[1]
+    with nogil:
+        for i in range(alen):
+            if a[0][i] < minx2:
+                minx2 = a[0][i]
+    return minx2 - minx
+
+
+@cy.boundscheck(False)
+@cy.wraparound(False)
+def xyz_to_grid(a: cy.double[:, :], xy_step: cy.double, z_step: cy.double):
     minx: cy.double = np.min(a[0])
     miny: cy.double = np.min(a[1])
     maxs = [np.max(a[0]), np.max(a[1]), np.max(a[2])]
-    dim_x: cy.int = int((maxs[0] - minx) / step + 1)
-    dim_y: cy.int = int((maxs[1] - miny) / step + 1)
+    dim_x: cy.int = int((maxs[0] - minx) / xy_step + 1)
+    dim_y: cy.int = int((maxs[1] - miny) / xy_step + 1)
     h = np.zeros(shape=(dim_x, dim_y), dtype=np.float64)
     hv: cy.double[:, ::1] = h
     n = np.zeros(shape=(dim_x, dim_y), dtype=np.float64)
@@ -36,14 +50,16 @@ def xyz_to_grid(a: cy.double[:, :], step: cy.double):
     y: cy.int
     with nogil, parallel(num_threads=8):
         for i in prange(alen):
-            x = cy.cast(cy.int, (a[0][i] - minx) / step)
-            y = cy.cast(cy.int, (a[1][i] - miny) / step)
+            x = cy.cast(cy.int, (a[0][i] - minx) / xy_step)
+            y = cy.cast(cy.int, (a[1][i] - miny) / xy_step)
             hv[x][y] += a[2][i]
             nv[x][y] += 1
         for x in prange(dim_x):
             for y in range(dim_y):
                 if nv[x][y] > 1:
                     hv[x][y] /= nv[x][y]
+                if z_step > 0:
+                    hv[x][y] = cy.cast(cy.int, hv[x][y] / z_step) * z_step
     return h
 
 

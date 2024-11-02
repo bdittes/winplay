@@ -46,18 +46,20 @@ def joinvf(vf1, vf2):
     return np.append(v1, v2, axis=0), np.append(f1, f2 + v1.shape[0], axis=0)
 
 
-def polygonvf(x, y, z):
+def polygonvf(x, y, z, revert=False):
     v = np.zeros(shape=(len(x), 3), dtype=np.float64)
     ps = []
     for i in range(len(x)):
         v[i][:] = [x[i], y[i], z[i]]
         ps.append([x[i], y[i], z[i], i])
-    triangles, _ = triangulate.triangulate(ps)
+    if revert:
+        ps.reverse()
+    triangles, n = triangulate.triangulate(ps)
     f = np.zeros(shape=(len(triangles), 3), dtype=np.float64)
     for i in range(len(triangles)):
         i0, i1, i2 = triangles[i]
         f[i][:] = [i0, i1, i2]
-    pu.log(f"polygonvf {len(x)} {len(f)}")
+    # pu.log(f"polygonvf {len(x)} {len(f)}, {n}")
     return v, f
 
 
@@ -66,48 +68,59 @@ def grid_sides(h: np.array, minx, miny, step):
     maxx = minx + step * dim_x
     maxy = miny + step * dim_y
     vf = None
-    vf = joinvf(vf, polygonvf([minx, maxx, maxx, minx], [miny, miny, maxy, maxy], [0, 0, 0, 0]))
-    vf = joinvf(
-        vf,
-        polygonvf(
-            [minx + i * step for i in range(dim_x)] + [maxx, minx],  #
-            [miny for i in range(dim_x + 2)],
-            [h[i][0] for i in range(dim_x)] + [0, 0]))
-    vf = joinvf(
-        vf,
-        polygonvf(
-            [minx + i * step for i in range(dim_x)] + [maxx, minx],  #
-            [maxy for i in range(dim_x + 2)],
-            [h[i][dim_y - 1] for i in range(dim_x)] + [0, 0]))
-    vf = joinvf(
-        vf,
-        polygonvf(
-            [minx for i in range(dim_y + 2)],  #
-            [miny + i * step for i in range(dim_y)] + [maxy, miny],
-            [h[0][i] for i in range(dim_y)] + [0, 0]))
-    vf = joinvf(
-        vf,
-        polygonvf(
-            [maxx for i in range(dim_y + 2)],  #
-            [miny + i * step for i in range(dim_y)] + [maxy, miny],
-            [h[dim_x - 1][i] for i in range(dim_y)] + [0, 0]))
+    vf = joinvf(vf, polygonvf([minx, maxx, maxx, minx], [miny, miny, maxy, maxy], [0, 0, 0, 0], revert=True))
+    BUCKET = 100
+    for x in range(0, dim_x, BUCKET):
+        di = pu.min(dim_x - x, BUCKET)
+        vf = joinvf(
+            vf,
+            polygonvf(
+                [minx + (x + i) * step for i in range(di)] + [minx + (x + di) * step, minx + x * step],  #
+                [miny for _ in range(di + 2)],
+                [h[x + i][0] for i in range(di)] + [0, 0],
+                revert=True))
+        vf = joinvf(
+            vf,
+            polygonvf(
+                [minx + (x + i) * step for i in range(di)] + [minx + (x + di) * step, minx + x * step],  #
+                [maxy for _ in range(di + 2)],
+                [h[x + i][dim_y - 1] for i in range(di)] + [0, 0]))
+    for y in range(0, dim_y, BUCKET):
+        di = pu.min(dim_y - y, BUCKET)
+        vf = joinvf(
+            vf,
+            polygonvf(
+                [minx for i in range(di + 2)],  #
+                [miny + (y + i) * step for i in range(di)] + [miny + (y + di) * step, miny + y * step],
+                [h[0][y + i] for i in range(di)] + [0, 0]))
+        vf = joinvf(
+            vf,
+            polygonvf(
+                [maxx for i in range(di + 2)],  #
+                [miny + (y + i) * step for i in range(di)] + [miny + (y + di) * step, miny + y * step],
+                [h[dim_x - 1][y + i] for i in range(di)] + [0, 0],
+                revert=True))
     return vf
 
 
-def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
+def xyz_to_mesh(fnames: list[str], xy_step_m=1, z_step_m=0, cache_dir=".cache") -> str:
     """Process xyz data to ply file in cache."""
     a = np.zeros(shape=(0, 3), dtype=np.float64)
+    ai = 0
     cache_key = hashlib.md5()
+    num_files = 0
     for fname in fnames:
         if fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz"):
             cache_key.update(fname.encode())
+            num_files += 1
     if not cache_key:
         return ""
+    cache_key.update(f"{xy_step_m} {z_step_m}".encode())
     log_prefix = f"xyz_{(cache_key.hexdigest())}"
     dst_file = mesh_path(log_prefix, cache_dir)
     if os.path.exists(dst_file) and os.path.getsize(dst_file) > 0:
         pu.log(f"[{log_prefix}] Already here: {dst_file}.")
-        return dst_file
+        ### return dst_file
 
     for fname in fnames:
         if not (fname.endswith(".xyz") or fname.endswith(".tif") or pu.zip_has_file(fname, "xyz")):
@@ -141,7 +154,16 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
             fa.resize((fai, 3))
             pu.log(f"[{log_prefix}] {fname} save {np_cache}")
             np.save(np_cache, fa)
-        a = np.append(a, fa, axis=0)
+        if ai + fa.shape[0] > a.shape[0]:
+            if ai == 0:
+                a.resize((num_files * fa.shape[0], 3))
+            else:
+                a.resize((a.shape[0] + 10 * f.shape[0], 3))
+
+        a[ai:ai + fa.shape[0]][:] = fa
+        ai += fa.shape[0]
+        del fa
+    a.resize((ai, 3))
     if a.shape[0] <= 0:
         return
     pu.log(f"[{log_prefix}] {a.shape} lines")
@@ -150,22 +172,22 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     pu.log(f"[{log_prefix}] {a.shape}")
     mins = [np.min(a[0]), np.min(a[1]), np.min(a[2])]
     maxs = [np.max(a[0]), np.max(a[1]), np.max(a[2])]
-    step = np.min([v for v in a[0] if v > mins[0]]) - mins[0]
-    if step < 2.0:
-        step = 2.0
-    pu.log(f"[{log_prefix}] STEP {step}")
+    xy_step = cyutils.xy_step(a)
+    if xy_step < xy_step_m:
+        xy_step = xy_step_m
+    pu.log(f"[{log_prefix}] STEP {xy_step}")
 
-    dim_x = int((maxs[0] - mins[0]) / step + 1)
-    dim_y = int((maxs[1] - mins[1]) / step + 1)
+    dim_x = int((maxs[0] - mins[0]) / xy_step + 1)
+    dim_y = int((maxs[1] - mins[1]) / xy_step + 1)
     pu.log(f"[{log_prefix}] {dim_x}, {dim_y}")
     if dim_x * dim_y > 10000000000:
         return
 
-    h = cyutils.xyz_to_grid(a, step)
+    h = cyutils.xyz_to_grid(a, xy_step, z_step_m)
     del a
 
-    vf = cyutils.grid_to_vf(h, mins[0], mins[1], step)
-    vf = joinvf(vf, grid_sides(h, mins[0], mins[1], step))
+    vf = cyutils.grid_to_vf(h, mins[0], mins[1], xy_step)
+    vf = joinvf(vf, grid_sides(h, mins[0], mins[1], xy_step))
     del h
     pu.log(f"[{log_prefix}] {vf[0].shape} v {vf[1].shape} f")
 
@@ -174,17 +196,22 @@ def xyz_to_mesh(fnames: list[str], cache_dir=".cache") -> str:
     ms = pymeshlab.MeshSet()
     ms.add_mesh(pymeshlab.Mesh(vf[0], vf[1]))
     # num_v = len(v)
-    del vf
-    targetperc = 0.8
-    if step >= 1.95:
+
+    if vf[0].shape[0] < 10000:
+        targetperc = 0.8
+    elif vf[0].shape[0] < 100000:
+        targetperc = 0.4
+    elif vf[0].shape[0] < 500000:
         targetperc = 0.1
-    elif step > 0.45:
+    else:
         targetperc = 0.05
+
+    del vf
     pu.log(f"[{log_prefix}] Decimating {targetperc}...")
-    ms.meshing_decimation_quadric_edge_collapse(targetperc=targetperc,
-                                                qualitythr=0.7,
-                                                preserveboundary=True,
-                                                preservetopology=True)
+    # ms.meshing_decimation_quadric_edge_collapse(targetperc=targetperc,
+    #                                             qualitythr=0.7,
+    #                                             preserveboundary=True,
+    #                                             preservetopology=True)
     pu.log(f"[{log_prefix}] {ms.current_mesh().vertex_matrix().shape}")
     ms.save_current_mesh(dst_file)
     pu.log(f"[{log_prefix}] Wrote {dst_file}")

@@ -26,7 +26,7 @@ def xy_step(a: cy.double[:, :]):
     alen: cy.int = a.shape[1]
     with nogil:
         for i in range(alen):
-            if a[0][i] < minx2:
+            if a[0][i] > minx and a[0][i] < minx2:
                 minx2 = a[0][i]
     return minx2 - minx
 

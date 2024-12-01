@@ -11,7 +11,7 @@ lxml # for CityGML
 
 
 # Dev:
-Flask==1.1.1
+Flask==2.2.5
 flake8
 flake8-quotes
 flake8-isort
